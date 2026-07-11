@@ -13,7 +13,7 @@ See [HELP.md](./companion/HELP.md) for plain-language setup help, and [LICENSE](
 **Buttons / actions**
 
 - Power on / off — per outlet or all outlets together; toggle — per outlet
-- Reset outlet — power cycle an outlet (off → on)
+- Reset outlet — power cycle an outlet (briefly off, then back on)
 - UIS auto-reset — enable / disable / toggle auto-reset functionality
 - Send heartbeat — keepalive for the switch's heartbeat monitor (tells it the monitored equipment is alive, deferring an auto-reset)
 
@@ -26,16 +26,17 @@ See [HELP.md](./companion/HELP.md) for plain-language setup help, and [LICENSE](
 
 **Variables** (updated by polling)
 
-- Connection status, outlet power states, outlet names
+- Outlet power states and names
 - UIS status, last heartbeat timestamp
+- Monitored-connection details (label, host, response time, packet loss) for connections 1–2
 
-**Presets** — ready-made buttons for common outlet actions.
+**Presets** — ready-made buttons for outlet control, UIS auto-reset, and status displays.
 
 ## Configuration
 
 | Setting                   | What it's for                                                |
 | ------------------------- | ------------------------------------------------------------ |
-| Device IP address         | The switch's address on your network                         |
+| Device IP address         | The switch's address on your network (`host` or `host:port`) |
 | HTTP/HTTPS protocol       | HTTP (port 80) or HTTPS (port 443)                          |
 | API version               | JSON API (firmware 3207+) or Legacy CGI/XML                 |
 | HTTP user name / password | Only for legacy CGI/XML; leave blank for JSON API           |

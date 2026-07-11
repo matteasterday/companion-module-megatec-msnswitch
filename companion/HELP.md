@@ -5,7 +5,7 @@ This module controls the switch over its HTTP/HTTPS API: outlet on/off/reset, th
 ### Configuration
 
 1. Enter the device's **IP address**.
-2. Choose **HTTP or HTTPS** (must match what is enabled on the device; the self-signed HTTPS certificate is accepted automatically).
+2. Choose **HTTP or HTTPS** (must match what is enabled on the device; the module accepts the device's self-signed HTTPS certificate automatically). Note: the vendor states the device may require a client certificate to be imported into it for HTTPS API access — if HTTPS fails but the web UI works, use HTTP.
 3. Choose the **API version** to match the device firmware:
    - **Firmware 3207+ (JSON)** — no username/password; access is controlled by the device's IP whitelist (see below).
    - **Older firmware (CGI/XML)** — requires the device's web username and password.
@@ -43,6 +43,8 @@ If this computer is not whitelisted, actions and polling fail (typically HTTP 40
 - **Monitored connection packet loss** — true when a monitored connection's packet loss is at or above the configured threshold (default 50%); useful for an "internet down" warning button
 
 ### Variables
+
+The examples below use `msnswitch` — replace it with the label you gave this connection.
 
 - **$(msnswitch:outlet1_name)** / **$(msnswitch:outlet2_name)** — outlet labels as configured on the device
 - **$(msnswitch:outlet1_status)** / **$(msnswitch:outlet2_status)** — On / Off
