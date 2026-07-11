@@ -1,14 +1,14 @@
 {
 	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
 	"type": "connection",
-	"id": "mega-msnswitch",
-	"name": "mega-msnswitch",
+	"id": "megatec-msnswitch",
+	"name": "megatec-msnswitch",
 	"shortname": "MSNSwitch",
 	"description": "Control and monitor Mega System Technologies MSNSwitch2 (UIS-622B) network power switches over HTTP/HTTPS API. Manage outlet power states (on/off/reset), UIS auto-reset, and monitor connection status with live feedback.",
 	"version": "1.0.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/bitfocus/companion-module-mega-msnswitch.git",
-	"bugs": "https://github.com/bitfocus/companion-module-mega-msnswitch/issues",
+	"repository": "git+https://github.com/bitfocus/companion-module-megatec-msnswitch.git",
+	"bugs": "https://github.com/bitfocus/companion-module-megatec-msnswitch/issues",
 	"maintainers": [
 		{
 			"name": "Matthew Easterday",
@@ -21,8 +21,8 @@
 		"apiVersion": "2.0.4",
 		"entrypoint": "../dist/main.js"
 	},
-	"legacyIds": [],
-	"manufacturer": "Mega System Technologies",
+	"legacyIds": ["mega-msnswitch"],
+	"manufacturer": "MegaTec",
 	"products": ["MSNSwitch2", "UIS-622B", "MSNSwitch"],
 	"keywords": [
 		"power switch",
@@ -31,7 +31,6 @@
 		"IP power",
 		"auto reset",
 		"UIS",
-		"Mega System",
 		"reboot",
 		"HTTP",
 		"HTTPS",

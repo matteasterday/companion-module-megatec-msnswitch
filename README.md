@@ -1,10 +1,10 @@
-# companion-module-mega-msnswitch
+# companion-module-megatec-msnswitch
 
 Control and monitor **Mega System Technologies MSNSwitch2** (UIS-622B) from [Bitfocus Companion](https://bitfocus.io/companion) over the network.
 
 No special hardware or cables are required — the module talks to the device's built-in HTTP/HTTPS control interface using a REST API (JSON for firmware 3207+, or legacy CGI/XML for older firmware). Just enter the device's IP address and you get full outlet control (on/off/reset), UIS auto-reset management, and live status (power states, UIS status, connection…) that updates automatically.
 
-> **What is it?** The MSNSwitch2 is a 2-outlet network power switch with UIS (Universal Input Slot) auto-reset. It's commonly used to remotely power-cycle equipment or automate system reboots.
+> **What is it?** The MSNSwitch2 is a 2-outlet network power switch with UIS (Uninterrupted Internet Service) auto-reset — it monitors internet connectivity and automatically power-cycles its outlets (typically a modem/router) when the connection is lost. It's commonly used to remotely power-cycle equipment or automate system reboots.
 
 See [HELP.md](./companion/HELP.md) for plain-language setup help, and [LICENSE](./LICENSE).
 
@@ -12,17 +12,17 @@ See [HELP.md](./companion/HELP.md) for plain-language setup help, and [LICENSE](
 
 **Buttons / actions**
 
-- Power on / off / toggle — per outlet or all outlets together
+- Power on / off — per outlet or all outlets together; toggle — per outlet
 - Reset outlet — power cycle an outlet (off → on)
-- UIS auto-reset — enable/disable auto-reset functionality
-- Heartbeat — keep the connection active
-- Raw API commands (advanced)
+- UIS auto-reset — enable / disable / toggle auto-reset functionality
+- Send heartbeat — keepalive for the switch's heartbeat monitor (tells it the monitored equipment is alive, deferring an auto-reset)
 
 **Feedbacks** (colour your buttons by live state)
 
 - Outlet 1 / Outlet 2 on
 - UIS active
 - Connected
+- Monitored connection packet loss at/above a threshold
 
 **Variables** (updated by polling)
 

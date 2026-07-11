@@ -78,11 +78,6 @@ export class MsnClient {
 
 	constructor(private opts: MsnClientOptions) {}
 
-	update(opts: MsnClientOptions): void {
-		this.opts = opts
-		this.legacyCookie = null
-	}
-
 	// --------------------------------------------------------------- public API
 
 	/** Fetch and normalize the current device state. */
@@ -214,10 +209,6 @@ export class MsnClient {
 	private normalizeLegacyStatus(xml: string): DeviceState {
 		const outletStatusRaw = extractAllTags(xml, 'outlet_status')
 		const resetOnlyRaw = extractAllTags(xml, 'reset_only')
-		const assignRaw = extractAllTags(xml, 'assign')
-		const siteIp = extractAllTags(xml, 'site_ip')
-		const connectStatus = extractAllTags(xml, 'connect_status')
-		const siteLost = extractAllTags(xml, 'site_lost')
 		const uisFunRaw = extractTag(xml, 'uis_fun')
 
 		const outletOn =
@@ -229,15 +220,28 @@ export class MsnClient {
 			{ name: 'Outlet 2', on: outletOn[1] ?? false, resetOnly: resetOnly[1] ?? false },
 		]
 
-		const connections: ConnectionState[] = siteIp.map((ip, i) => ({
-			assign: assignLabel(Number(assignRaw[i] ?? -1)),
-			label: '',
-			host: '',
-			ip,
-			resp: Number(connectStatus[i] ?? 0) || 0,
-			timeout: 0,
-			lost: Number(siteLost[i] ?? 0) || 0,
-		}))
+		// Legacy firmware packs the per-site arrays as comma-separated lists inside single
+		// tags (e.g. <site_ip>1.2.3.4,5.6.7.8,null,null</site_ip>); unused slots are "null"
+		// with -1 sentinels in the numeric fields.
+		const siteIp = extractList(xml, 'site_ip')
+		const siteLabel = extractList(xml, 'site_label')
+		const connectStatus = extractList(xml, 'connect_status')
+		const siteLost = extractList(xml, 'site_lost')
+		const assignRaw = extractList(xml, 'assign')
+
+		const connections: ConnectionState[] = []
+		siteIp.forEach((ip, i) => {
+			if (!ip || ip.toLowerCase() === 'null') return
+			connections.push({
+				assign: assignLabel(Number(assignRaw[i] ?? -1)),
+				label: siteLabel[i] ?? '',
+				host: '',
+				ip,
+				resp: nonNegative(connectStatus[i]),
+				timeout: 0,
+				lost: nonNegative(siteLost[i]),
+			})
+		})
 
 		return { reachable: true, outlets, uisOn: uisFunRaw === '1', connections }
 	}
@@ -263,6 +267,29 @@ export class MsnClient {
 
 	// --------------------------------------------------------------- raw HTTP
 
+	/**
+	 * Normalize the configured host into hostname + port. Tolerates pasted URLs
+	 * ("http://192.168.0.10/"), "host:port" (a port-forwarded setup may expose the
+	 * device off 80/443), and IPv6 literals ("::1" or "[::1]:8080").
+	 */
+	private parseHost(): { hostname: string; port: number } {
+		const defaultPort = this.opts.protocol === 'https' ? 443 : 80
+		let host = this.opts.host.trim()
+		host = host.replace(/^https?:\/\//i, '')
+		host = host.replace(/\/.*$/, '')
+		const bracketed = host.match(/^\[([^\]]+)\](?::(\d+))?$/)
+		if (bracketed) {
+			return { hostname: bracketed[1], port: bracketed[2] ? Number(bracketed[2]) : defaultPort }
+		}
+		const colons = host.split(':').length - 1
+		if (colons === 1) {
+			const [hostname, portRaw] = host.split(':')
+			return { hostname, port: Number(portRaw) || defaultPort }
+		}
+		// 0 colons (plain host) or 2+ colons (bare IPv6 literal, no port).
+		return { hostname: host, port: defaultPort }
+	}
+
 	private assertOk(res: HttpResult): void {
 		if (res.status < 200 || res.status >= 300) {
 			if (this.opts.apiVersion === 'json' && (res.status === 401 || res.status === 403)) {
@@ -281,10 +308,7 @@ export class MsnClient {
 	): Promise<HttpResult> {
 		return new Promise((resolve, reject) => {
 			const isHttps = this.opts.protocol === 'https'
-			// Allow "host" or "host:port" — the device itself uses 80/443, but a
-			// port-forwarded setup may expose it elsewhere.
-			const [hostname, portRaw] = this.opts.host.split(':')
-			const port = portRaw ? Number(portRaw) : isHttps ? 443 : 80
+			const { hostname, port } = this.parseHost()
 			const headers: Record<string, string> = { ...(options.headers ?? {}) }
 			if (options.body !== undefined) {
 				headers['Content-Length'] = String(Buffer.byteLength(options.body))
@@ -367,6 +391,12 @@ function parseBoolField(raw: string | undefined): boolean[] {
 	return [cleaned === '1']
 }
 
+/** Parse a numeric site field, mapping missing / non-numeric / negative sentinels (-1 = unused) to 0. */
+function nonNegative(raw: string | undefined): number {
+	const n = Number(raw)
+	return Number.isFinite(n) && n >= 0 ? n : 0
+}
+
 /** Extract the text of the first `<tag>...</tag>` occurrence. */
 function extractTag(xml: string, tag: string): string | undefined {
 	const m = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'))
@@ -380,4 +410,12 @@ function extractAllTags(xml: string, tag: string): string[] {
 	let m: RegExpExecArray | null
 	while ((m = re.exec(xml))) out.push(m[1].trim())
 	return out
+}
+
+/**
+ * Extract tag values as a flat list, splitting comma-separated contents — legacy firmware
+ * packs per-site arrays into a single tag ("a,b,c"), but repeated tags are tolerated too.
+ */
+function extractList(xml: string, tag: string): string[] {
+	return extractAllTags(xml, tag).flatMap((v) => v.split(',').map((s) => s.trim()))
 }

@@ -7,6 +7,7 @@ export type VariablesSchema = {
 	outlet2_name: string
 	outlet2_status: string
 	uis_status: string
+	last_heartbeat: string
 	connection1_label: string
 	connection1_host: string
 	connection1_resp: string
@@ -24,6 +25,7 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 		outlet2_name: { name: 'Outlet 2 name' },
 		outlet2_status: { name: 'Outlet 2 status (On / Off)' },
 		uis_status: { name: 'UIS auto-reset status (On / Off)' },
+		last_heartbeat: { name: 'Last heartbeat response (timestamp reported by the device)' },
 		connection1_label: { name: 'Monitored connection 1 — label' },
 		connection1_host: { name: 'Monitored connection 1 — host' },
 		connection1_resp: { name: 'Monitored connection 1 — response time (ms)' },
@@ -38,7 +40,7 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 const onOff = (b: boolean): string => (b ? 'On' : 'Off')
 
 /** Project the current state into the typed variable value map. */
-export function buildVariableValues(state: DeviceState): VariablesSchema {
+export function buildVariableValues(state: DeviceState, lastHeartbeat: string): VariablesSchema {
 	const conn = (i: number) => state.connections[i]
 	return {
 		outlet1_name: state.outlets[0].name || 'Outlet 1',
@@ -46,6 +48,7 @@ export function buildVariableValues(state: DeviceState): VariablesSchema {
 		outlet2_name: state.outlets[1].name || 'Outlet 2',
 		outlet2_status: onOff(state.outlets[1].on),
 		uis_status: onOff(state.uisOn),
+		last_heartbeat: lastHeartbeat,
 		connection1_label: conn(0)?.label ?? '',
 		connection1_host: conn(0)?.host || conn(0)?.ip || '',
 		connection1_resp: conn(0) ? String(conn(0).resp) : '',

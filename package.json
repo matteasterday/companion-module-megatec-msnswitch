@@ -1,5 +1,5 @@
 {
-	"name": "mega-msnswitch",
+	"name": "megatec-msnswitch",
 	"version": "1.0.0",
 	"main": "dist/main.js",
 	"type": "module",
@@ -17,7 +17,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bitfocus/companion-module-mega-msnswitch.git"
+		"url": "git+https://github.com/bitfocus/companion-module-megatec-msnswitch.git"
 	},
 	"engines": {
 		"node": "^22.20",

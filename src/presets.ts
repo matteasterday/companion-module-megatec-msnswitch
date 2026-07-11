@@ -100,6 +100,13 @@ export function UpdatePresets(self: ModuleInstance): void {
 		steps: [{ down: [{ actionId: 'uis_control', options: { mode: 'off' } }], up: [] }],
 		feedbacks: [{ feedbackId: 'uis_on', options: {}, isInverted: true, style: { bgcolor: red, color: white } }],
 	}
+	presets['uis_toggle'] = {
+		type: 'simple',
+		name: 'UIS Toggle',
+		style: { text: `UIS\\n${v('uis_status')}`, size: '14', color: white, bgcolor: dark, show_topbar: false },
+		steps: [{ down: [{ actionId: 'uis_toggle', options: {} }], up: [] }],
+		feedbacks: uisFeedback,
+	}
 
 	// ---- Status displays ----
 	presets['status_connected'] = {
@@ -158,7 +165,9 @@ export function UpdatePresets(self: ModuleInstance): void {
 		{
 			id: 'uis',
 			name: 'UIS Auto-Reset',
-			definitions: [{ id: 'uis_grp', name: 'UIS Auto-Reset', type: 'simple', presets: ['uis_on', 'uis_off'] }],
+			definitions: [
+				{ id: 'uis_grp', name: 'UIS Auto-Reset', type: 'simple', presets: ['uis_on', 'uis_off', 'uis_toggle'] },
+			],
 		},
 		{
 			id: 'status',

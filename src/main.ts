@@ -22,12 +22,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig
 	/** Current normalized device state — read by actions and feedbacks. */
 	state: DeviceState = blankState()
+	/** Timestamp reported by the device on the last heartbeat sent from this module. */
+	private lastHeartbeat = ''
 
 	private client?: MsnClient
 	private pollTimer?: ReturnType<typeof setTimeout>
 	private refreshTimer?: ReturnType<typeof setTimeout>
 	private pollInFlight = false
 	private destroyed = false
+	/** Bumped on every restart() so a poll loop from a previous config can't survive it. */
+	private pollGeneration = 0
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -86,6 +90,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	/** (Re)create the client and (re)start polling after init / config change. */
 	private restart(): void {
+		this.pollGeneration++
 		this.stopTimers()
 		this.state = blankState()
 
@@ -97,7 +102,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		this.client = new MsnClient(this.clientOptions())
 		this.updateStatus(InstanceStatus.Connecting)
-		void this.pollLoop()
+		void this.pollLoop(this.pollGeneration)
 	}
 
 	private stopTimers(): void {
@@ -107,25 +112,27 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.refreshTimer = undefined
 	}
 
-	private async pollLoop(): Promise<void> {
-		if (this.destroyed || !this.client) return
-		await this.poll()
-		if (!this.destroyed && this.config.polling) {
-			this.pollTimer = setTimeout(() => void this.pollLoop(), Math.max(1, this.config.pollInterval) * 1000)
+	private async pollLoop(gen: number): Promise<void> {
+		if (this.destroyed || gen !== this.pollGeneration || !this.client) return
+		await this.poll(gen)
+		if (!this.destroyed && gen === this.pollGeneration && this.config.polling) {
+			this.pollTimer = setTimeout(() => void this.pollLoop(gen), Math.max(1, this.config.pollInterval) * 1000)
 		}
 	}
 
 	// --------------------------------------------------------------- polling
 
-	private async poll(): Promise<void> {
+	private async poll(gen = this.pollGeneration): Promise<void> {
 		if (this.pollInFlight || !this.client) return
 		this.pollInFlight = true
 		try {
-			this.state = await this.client.getStatus()
+			const state = await this.client.getStatus()
+			if (gen !== this.pollGeneration) return
+			this.state = state
 			this.markReachable()
 			this.publish()
 		} catch (e) {
-			this.handleTransportError(e, 'Polling')
+			if (gen === this.pollGeneration) this.handleTransportError(e, 'Polling')
 		} finally {
 			this.pollInFlight = false
 		}
@@ -145,13 +152,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	/** Ping the device heartbeat endpoint. */
+	/** Send a keepalive to the device's heartbeat monitor (defers a pending auto-reset). */
 	async sendHeartbeat(): Promise<void> {
 		if (!this.client) return
 		try {
 			const hb = await this.client.heartbeat()
 			this.log('info', `Heartbeat: ${hb}`)
+			this.lastHeartbeat = hb
 			this.markReachable()
+			this.publish()
 		} catch (e) {
 			this.handleTransportError(e, 'Heartbeat')
 		}
@@ -165,8 +174,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	/** Optimistically set the on/off state of the outlet(s) targeted by a control command. */
 	applyOptimisticOutlet(target: OutletTarget, on: boolean): void {
-		if (target === 'outlet1' || target === 'outlet_all') this.state.outlets[0].on = on
-		if (target === 'outlet2' || target === 'outlet_all') this.state.outlets[1].on = on
+		// Reset-only outlets ignore on/off commands, so don't pretend they changed.
+		if ((target === 'outlet1' || target === 'outlet_all') && !this.state.outlets[0].resetOnly)
+			this.state.outlets[0].on = on
+		if ((target === 'outlet2' || target === 'outlet_all') && !this.state.outlets[1].resetOnly)
+			this.state.outlets[1].on = on
 		this.publish()
 	}
 
@@ -193,7 +205,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	/** Push the current state out to variables and feedbacks. */
 	private publish(): void {
-		this.setVariableValues(buildVariableValues(this.state))
-		this.checkFeedbacks('connected', 'outlet_on', 'uis_on')
+		this.setVariableValues(buildVariableValues(this.state, this.lastHeartbeat))
+		this.checkFeedbacks('connected', 'outlet_on', 'uis_on', 'connection_lossy')
 	}
 }
