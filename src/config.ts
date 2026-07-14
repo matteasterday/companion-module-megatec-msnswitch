@@ -19,8 +19,9 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 			width: 12,
 			value:
 				'Controls a Mega System Technologies MSNSwitch2 (UIS-622B) 2-outlet IP power switch over HTTP(S). ' +
-				'Firmware 3207 and newer use the JSON API (no login required — the device relies on IP whitelisting). ' +
-				'Older firmware (around the A624 era) uses the legacy CGI/XML API, which requires a user name and password.',
+				'Both API versions require the device web UI user name and password. Firmware 3207 and newer use the ' +
+				'JSON API and additionally require this computer’s IP address on the device’s API whitelist ' +
+				'(device web UI → Network Service). Older firmware (around the A624 era) uses the legacy CGI/XML API.',
 		},
 		{
 			type: 'textinput',
@@ -55,18 +56,18 @@ export function GetConfigFields(): SomeCompanionConfigField[] {
 		{
 			type: 'textinput',
 			id: 'username',
-			label: 'User name (legacy API only)',
+			label: 'User name',
 			width: 6,
 			default: '',
-			tooltip: 'admin',
+			tooltip: 'The device web UI login, e.g. admin',
 		},
 		{
 			type: 'textinput',
 			id: 'password',
-			label: 'Password (legacy API only)',
+			label: 'Password',
 			width: 6,
 			default: '',
-			tooltip: 'admin',
+			tooltip: 'The device web UI password',
 		},
 		{
 			type: 'checkbox',

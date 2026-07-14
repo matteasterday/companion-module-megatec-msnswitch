@@ -6,20 +6,21 @@ This module controls the switch over its HTTP/HTTPS API: outlet on/off/reset, th
 
 1. Enter the device's **IP address**.
 2. Choose **HTTP or HTTPS** (must match what is enabled on the device; the module accepts the device's self-signed HTTPS certificate automatically). Note: the vendor states the device may require a client certificate to be imported into it for HTTPS API access — if HTTPS fails but the web UI works, use HTTP.
-3. Choose the **API version** to match the device firmware:
-   - **Firmware 3207+ (JSON)** — no username/password; access is controlled by the device's IP whitelist (see below).
-   - **Older firmware (CGI/XML)** — requires the device's web username and password.
-4. Leave **polling** enabled so outlet state, feedbacks, and variables stay current. The poll interval defaults to 5 seconds.
+3. Enter the device's web **username and password** — both API versions require them (the JSON API sends them with every request).
+4. Choose the **API version** to match the device firmware:
+   - **Firmware 3207+ (JSON)** — requires the credentials *and* the device's IP whitelist (see below).
+   - **Older firmware (CGI/XML)** — requires the credentials only.
+5. Leave **polling** enabled so outlet state, feedbacks, and variables stay current. The poll interval defaults to 5 seconds.
 
 ### IP whitelisting (firmware 3207+)
 
-Firmware 3207 replaced API credentials with an IP whitelist — the device only answers API requests from addresses you have allowed:
+On firmware 3207+ the device only answers API requests from addresses you have allowed:
 
 1. Open the device web UI and go to the **Network Service / API** settings.
 2. Enable HTTP (and/or HTTPS) API control.
 3. Add the IP address of this computer to the API whitelist.
 
-If this computer is not whitelisted, actions and polling fail (typically HTTP 401/403, and the connection shows a failure status with a whitelist hint). Give this computer a static IP or DHCP reservation so the whitelist entry stays valid.
+If this computer is not whitelisted or the credentials are wrong, actions and polling fail (typically HTTP 400/401/403, and the connection shows a failure status with a hint). Give this computer a static IP or DHCP reservation so the whitelist entry stays valid.
 
 ### How it behaves
 
@@ -55,6 +56,6 @@ The examples below use `msnswitch` — replace it with the label you gave this c
 ### Troubleshooting
 
 - **Connection failure** — check the IP address and that the device is on the network. Try opening `http://<device-ip>/` in a browser from this computer.
-- **HTTP 401 / 403 (firmware 3207+)** — this computer's IP is not on the device's API whitelist, or API control is disabled. Fix both in the device web UI.
+- **HTTP 400 / 401 / 403 (firmware 3207+)** — the username/password is missing or wrong, this computer's IP is not on the device's API whitelist, or API control is disabled. Fix these in the connection config and the device web UI.
 - **Authentication failed (older firmware)** — verify the username and password.
 - **Reset has no effect** — reset only applies to outlets that are already ON.

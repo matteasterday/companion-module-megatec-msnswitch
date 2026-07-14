@@ -39,11 +39,11 @@ See [HELP.md](./companion/HELP.md) for plain-language setup help, and [LICENSE](
 | Device IP address         | The switch's address on your network (`host` or `host:port`) |
 | HTTP/HTTPS protocol       | HTTP (port 80) or HTTPS (port 443)                          |
 | API version               | JSON API (firmware 3207+) or Legacy CGI/XML                 |
-| HTTP user name / password | Only for legacy CGI/XML; leave blank for JSON API           |
+| HTTP user name / password | The device's web login — required for both API versions      |
 | Poll device for status    | Keeps buttons and variables up to date                       |
 | Poll interval (seconds)   | How often to check (default `5`)                             |
 
-For the JSON API (firmware 3207+), no credentials are needed — just ensure the HTTP/HTTPS API is enabled in the device's Network Service settings. For legacy firmware, use the username and password you set in the device's web UI.
+Both API versions use the username and password you set in the device's web UI. For the JSON API (firmware 3207+), additionally ensure the HTTP/HTTPS API is enabled in the device's Network Service settings and this computer's IP address is on the device's API whitelist.
 
 ## Supported devices
 

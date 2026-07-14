@@ -3,11 +3,14 @@
  *
  * Two API generations are supported, selected by `apiVersion`:
  *
- *  - `json`   Modern JSON API (firmware >= 3207, 2023+). No authentication —
- *             the device relies on IP whitelisting. Endpoints:
- *               GET /api/status
- *               GET /api/control?target=<TAR>&action=<ACT>
- *               GET /api/heartbeat
+ *  - `json`   Modern JSON API (firmware >= 3207, 2023+). Every request must carry
+ *             the device's web-UI credentials as a form-encoded body (per vendor
+ *             tech note MSNTN001 the examples are curl --data "user=..&password=..",
+ *             i.e. a POST), and the caller's IP must be on the device's API
+ *             whitelist. Endpoints:
+ *               POST /api/status
+ *               POST /api/control?target=<TAR>&action=<ACT>
+ *               POST /api/heartbeat
  *
  *  - `legacy` Older CGI/XML API (firmware A624-era, 2020-2022).
  *               Control:   GET /cgi-bin/control2.cgi?user=&passwd=&target=&control=
@@ -21,6 +24,7 @@
 
 import * as http from 'node:http'
 import * as https from 'node:https'
+import * as zlib from 'node:zlib'
 import { URLSearchParams } from 'node:url'
 import type {
 	ConnectionState,
@@ -101,8 +105,25 @@ export class MsnClient {
 
 	// --------------------------------------------------------------- JSON API (firmware 3207+)
 
+	/**
+	 * The JSON API rejects bare GETs (HTTP 400): every request must POST the web-UI
+	 * credentials as a form body, and the vendor doc marks the Accept headers required.
+	 */
+	private async requestJsonApi(path: string): Promise<HttpResult> {
+		const body = `user=${encodeURIComponent(this.opts.username)}&password=${encodeURIComponent(this.opts.password)}`
+		return this.request(path, {
+			method: 'POST',
+			body,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				Accept: '*/*',
+				'Accept-Encoding': 'gzip, deflate',
+			},
+		})
+	}
+
 	private async getStatusJson(): Promise<DeviceState> {
-		const res = await this.request('/api/status')
+		const res = await this.requestJsonApi('/api/status')
 		this.assertOk(res)
 		let parsed: JsonStatusResponse
 		try {
@@ -140,7 +161,7 @@ export class MsnClient {
 	}
 
 	private async controlJson(target: OutletTarget, action: ControlAction): Promise<void> {
-		const res = await this.request(`/api/control?target=${target}&action=${action}`)
+		const res = await this.requestJsonApi(`/api/control?target=${target}&action=${action}`)
 		this.assertOk(res)
 		try {
 			const parsed = JSON.parse(res.body) as JsonControlResponse
@@ -151,7 +172,7 @@ export class MsnClient {
 	}
 
 	private async heartbeatJson(): Promise<string> {
-		const res = await this.request('/api/heartbeat')
+		const res = await this.requestJsonApi('/api/heartbeat')
 		this.assertOk(res)
 		try {
 			const parsed = JSON.parse(res.body) as JsonHeartbeatResponse
@@ -292,10 +313,11 @@ export class MsnClient {
 
 	private assertOk(res: HttpResult): void {
 		if (res.status < 200 || res.status >= 300) {
-			if (this.opts.apiVersion === 'json' && (res.status === 401 || res.status === 403)) {
+			if (this.opts.apiVersion === 'json' && (res.status === 400 || res.status === 401 || res.status === 403)) {
 				throw new MsnTransportError(
-					`HTTP ${res.status} — the device refused the request. Check that this computer's IP address is on ` +
-						`the device's API whitelist and that HTTP control is enabled (device web UI → Network Service).`,
+					`HTTP ${res.status} — the device refused the request. The JSON API needs the device's web ` +
+						`user name and password (set them in this connection's config), this computer's IP address on ` +
+						`the device's API whitelist, and HTTP control enabled (device web UI → Network Service).`,
 				)
 			}
 			throw new MsnTransportError(`HTTP ${res.status}`)
@@ -318,11 +340,19 @@ export class MsnClient {
 				const chunks: Buffer[] = []
 				res.on('data', (chunk: Buffer) => chunks.push(chunk))
 				res.on('end', () => {
-					resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString('utf8'), headers: res.headers })
+					try {
+						const body = decodeBody(Buffer.concat(chunks), res.headers['content-encoding'])
+						resolve({ status: res.statusCode ?? 0, body, headers: res.headers })
+					} catch {
+						reject(new MsnTransportError('Failed to decompress the device response'))
+					}
 				})
 				res.on('error', (e) => reject(new MsnTransportError(e.message)))
 			}
 
+			// insecureHTTPParser: the device firmware terminates response header lines with a
+			// bare LF instead of CRLF, which Node's strict parser rejects ("missing expected
+			// CR after header value").
 			const req = isHttps
 				? https.request(
 						{
@@ -333,6 +363,7 @@ export class MsnClient {
 							headers,
 							timeout: this.opts.timeoutMs,
 							rejectUnauthorized: false,
+							insecureHTTPParser: true,
 						},
 						onResponse,
 					)
@@ -344,6 +375,7 @@ export class MsnClient {
 							method: options.method ?? 'GET',
 							headers,
 							timeout: this.opts.timeoutMs,
+							insecureHTTPParser: true,
 						},
 						onResponse,
 					)
@@ -360,6 +392,21 @@ export class MsnClient {
 }
 
 // ------------------------------------------------------------------- helpers
+
+/** Decode a response body that may be compressed (we advertise Accept-Encoding: gzip, deflate). */
+function decodeBody(raw: Buffer, contentEncoding: string | undefined): string {
+	const encoding = (contentEncoding ?? '').trim().toLowerCase()
+	if (encoding === 'gzip') return zlib.gunzipSync(raw).toString('utf8')
+	if (encoding === 'deflate') {
+		try {
+			return zlib.inflateSync(raw).toString('utf8')
+		} catch {
+			// Some embedded servers send raw deflate streams without the zlib wrapper.
+			return zlib.inflateRawSync(raw).toString('utf8')
+		}
+	}
+	return raw.toString('utf8')
+}
 
 /** Map the legacy `assign` code (0-3) onto the JSON API's assign labels. */
 function assignLabel(code: number): ConnectionState['assign'] {
